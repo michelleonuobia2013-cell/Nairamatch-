@@ -1,0 +1,6 @@
+{
+  "name": "NairaMatch: Species Reaction & Cashout",
+  "description": "High-stakes 10-minute rare species memory reaction game with +₦500 card matches, -₦1 penalty, 4-player tournaments, simulated real bank payouts, and global leaderboards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
