@@ -9,11 +9,25 @@ import { TutorialModal } from './components/TutorialModal';
 import { DailyRewardsModal } from './components/DailyRewardsModal';
 import { SocialShareModal } from './components/SocialShareModal';
 import { NotificationsModal, AppNotification } from './components/NotificationsModal';
+import { StageSelectorModal } from './components/StageSelectorModal';
+import { ThemeSelectorModal } from './components/ThemeSelectorModal';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
+
+import { THEMES_LIST, GameTheme } from './data/themes';
+import { CAMPAIGN_STAGES, StageConfig } from './data/stages';
+import { 
+  BoosterInventory, 
+  StageProgress, 
+  loadSavedGame, 
+  saveGame, 
+  DEFAULT_BOOSTERS, 
+  DEFAULT_STAGE_PROGRESS 
+} from './utils/storage';
 import { sound } from './utils/audio';
 
 export default function App() {
   // Navigation & Modals
-  const [activeTab, setActiveTab] = useState<'game' | 'leaderboard' | 'payout' | 'species' | 'tutorial'>('game');
+  const [activeTab, setActiveTab] = useState<'game' | 'stages' | 'themes' | 'leaderboard' | 'payout' | 'species' | 'tutorial'>('game');
   const [isPayoutOpen, setIsPayoutOpen] = useState<boolean>(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
   const [isSpeciesOpen, setIsSpeciesOpen] = useState<boolean>(false);
@@ -21,6 +35,16 @@ export default function App() {
   const [isDailyRewardsOpen, setIsDailyRewardsOpen] = useState<boolean>(false);
   const [isSocialShareOpen, setIsSocialShareOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
+  const [isStageSelectorOpen, setIsStageSelectorOpen] = useState<boolean>(false);
+  const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState<boolean>(false);
+
+  // Active Lagos Stage & Theme
+  const [activeStage, setActiveStage] = useState<StageConfig | null>(null);
+  const [selectedThemeId, setSelectedThemeId] = useState<string>('chow_town');
+
+  // Booster Inventory & Stage Progress
+  const [boosters, setBoosters] = useState<BoosterInventory>(DEFAULT_BOOSTERS);
+  const [stageProgress, setStageProgress] = useState<Record<string, StageProgress>>(DEFAULT_STAGE_PROGRESS);
 
   // User Profile & Real Wallet
   const [userName, setUserName] = useState<string>('Chinedu Champion');
@@ -31,7 +55,7 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
 
-  // Bank Account
+  // Bank Account Details
   const [bankAccount, setBankAccount] = useState<{
     bankCode: string;
     bankName: string;
@@ -103,8 +127,16 @@ export default function App() {
     gameCommunityConservationImpact: string;
   } | null>(null);
 
-  // Notifications
+  // In-App Push Notifications
   const [notifications, setNotifications] = useState<AppNotification[]>([
+    {
+      id: 'notif_pwa',
+      title: 'Auto-Saved to Your Device',
+      message: 'All balances, boosters, and unlocked stages are saved automatically on this device.',
+      time: 'Just now',
+      type: 'reward',
+      read: false
+    },
     {
       id: 'notif_1',
       title: 'Tournament Reward Credited',
@@ -115,74 +147,155 @@ export default function App() {
     },
     {
       id: 'notif_2',
-      title: 'Daily Streak Available',
-      message: 'Log in today to keep your 3-day winning streak alive!',
-      time: '1h ago',
+      title: 'Lagos Energy Boosters Ready',
+      message: 'Use "Flash Light" or "NEPA Power On" during high-stakes rush hours!',
+      time: '45m ago',
       type: 'reward',
       read: false
-    },
-    {
-      id: 'notif_3',
-      title: 'NIBSS Settlement Cleared',
-      message: '₦1,500 withdrawal successfully disbursed to Kuda Bank.',
-      time: 'Yesterday',
-      type: 'payout',
-      read: true
     }
   ]);
 
-  // Load initial data from Express backend
+  // Restore saved state from device on startup
   useEffect(() => {
-    // 1. Fetch user profile
+    const saved = loadSavedGame();
+    if (saved) {
+      if (saved.walletBalance !== undefined) setWalletBalance(saved.walletBalance);
+      if (saved.totalWon !== undefined) setTotalWon(saved.totalWon);
+      if (saved.streak !== undefined) setStreak(saved.streak);
+      if (saved.bankAccount) setBankAccount(saved.bankAccount);
+      if (saved.boosters) setBoosters(saved.boosters);
+      if (saved.stageProgress) setStageProgress(saved.stageProgress);
+      if (saved.selectedThemeId) setSelectedThemeId(saved.selectedThemeId);
+      if (saved.soundEnabled !== undefined) {
+        setSoundEnabled(saved.soundEnabled);
+        sound.enabled = saved.soundEnabled;
+      }
+    }
+
+    // Also sync with server backend
     fetch('/api/auth/profile')
       .then(res => res.json())
       .then(data => {
         if (data.success && data.profile) {
           setUserName(data.profile.username);
-          setWalletBalance(data.profile.walletBalance);
-          setTotalWon(data.profile.totalWon);
-          setStreak(data.profile.streak);
-          if (data.profile.bankAccount) {
-            setBankAccount(data.profile.bankAccount);
+          if (!saved) {
+            setWalletBalance(data.profile.walletBalance);
+            setTotalWon(data.profile.totalWon);
+            setStreak(data.profile.streak);
+            if (data.profile.bankAccount) setBankAccount(data.profile.bankAccount);
           }
         }
       })
-      .catch(() => {
-        // Fallback to initial state if server is spinning up
-      });
+      .catch(() => {});
 
-    // 2. Fetch Leaderboard
     fetch('/api/leaderboard')
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.leaderboard) {
-          setLeaderboard(data.leaderboard);
-        }
+        if (data.success && data.leaderboard) setLeaderboard(data.leaderboard);
       })
       .catch(() => {});
 
-    // 3. Fetch Climate Telemetry
     fetch('/api/climate')
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.climate) {
-          setClimateData(data.climate);
-        }
+        if (data.success && data.climate) setClimateData(data.climate);
       })
       .catch(() => {});
 
-    // 4. Fetch Payout History
     fetch('/api/payout/history')
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.transactions) {
-          setTransactions(data.transactions);
-        }
+        if (data.success && data.transactions) setTransactions(data.transactions);
       })
       .catch(() => {});
   }, []);
 
-  // Credit Wallet from Match
+  // Auto-Save whenever crucial state changes
+  useEffect(() => {
+    saveGame({
+      walletBalance,
+      totalWon,
+      streak,
+      bankAccount,
+      boosters,
+      stageProgress,
+      selectedThemeId,
+      soundEnabled,
+      notificationsEnabled
+    });
+  }, [walletBalance, totalWon, streak, bankAccount, boosters, stageProgress, selectedThemeId, soundEnabled, notificationsEnabled]);
+
+  // Active Theme object
+  const activeTheme = THEMES_LIST.find(t => t.id === selectedThemeId) || THEMES_LIST[0];
+
+  // Power-Up handlers
+  const handleUseBooster = (boosterId: keyof BoosterInventory) => {
+    setBoosters(prev => {
+      const currentCount = prev[boosterId] || 0;
+      if (currentCount <= 0) return prev;
+      const updated = { ...prev, [boosterId]: currentCount - 1 };
+      saveGame({ boosters: updated });
+      return updated;
+    });
+  };
+
+  const handleBuyBooster = (boosterId: keyof BoosterInventory, count = 1) => {
+    const cost = boosterId === 'flashLight' ? 300 : boosterId === 'nepaPower' ? 250 : boosterId === 'vipPass' ? 500 : 200;
+    const totalCost = cost * count;
+
+    if (walletBalance < totalCost) {
+      sound.playMismatch();
+      return;
+    }
+
+    setWalletBalance(prev => {
+      const updatedBalance = prev - totalCost;
+      setBoosters(b => {
+        const updatedBoosters = { ...b, [boosterId]: (b[boosterId] || 0) + count };
+        saveGame({ walletBalance: updatedBalance, boosters: updatedBoosters });
+        return updatedBoosters;
+      });
+      return updatedBalance;
+    });
+  };
+
+  // Stage Completion handler
+  const handleStageCompleted = (stageId: string, stars: number, rewardNaira: number) => {
+    setStageProgress(prev => {
+      const current = prev[stageId] || { stageId, unlocked: true, highScore: 0, stars: 0, bestTimeRemaining: 0 };
+      const updatedStars = Math.max(current.stars, stars);
+      const updatedProgress = { ...prev, [stageId]: { ...current, stars: updatedStars } };
+
+      // Unlock next stage in progression
+      const currentStageIndex = CAMPAIGN_STAGES.findIndex(s => s.id === stageId);
+      if (currentStageIndex >= 0 && currentStageIndex < CAMPAIGN_STAGES.length - 1) {
+        const nextStageId = CAMPAIGN_STAGES[currentStageIndex + 1].id;
+        updatedProgress[nextStageId] = {
+          ...(updatedProgress[nextStageId] || { stageId: nextStageId, highScore: 0, stars: 0, bestTimeRemaining: 0 }),
+          unlocked: true
+        };
+      }
+
+      saveGame({ stageProgress: updatedProgress });
+      return updatedProgress;
+    });
+
+    // Add in-app notification
+    const stage = CAMPAIGN_STAGES.find(s => s.id === stageId);
+    setNotifications(prev => [
+      {
+        id: `stage_clear_${Date.now()}`,
+        title: `${stage?.name || 'Stage'} Cleared!`,
+        message: `Awarded ${stars} ⭐ stars and +₦${rewardNaira.toLocaleString()} clearance bonus!`,
+        time: 'Just now',
+        type: 'tournament',
+        read: false
+      },
+      ...prev
+    ]);
+  };
+
+  // Credit match callback
   const handleCreditWallet = (
     netWinnings: number, 
     correctMatches: number, 
@@ -190,7 +303,14 @@ export default function App() {
     positionBonus: number, 
     finishPosition: number
   ) => {
-    // Call server API
+    setWalletBalance(prev => {
+      const nextBal = Math.max(0, prev + netWinnings);
+      setTotalWon(t => t + (netWinnings > 0 ? netWinnings : 0));
+      saveGame({ walletBalance: nextBal, totalWon: totalWon + (netWinnings > 0 ? netWinnings : 0) });
+      return nextBal;
+    });
+
+    // Notify backend
     fetch('/api/wallet/credit-match', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -201,34 +321,7 @@ export default function App() {
         positionBonus,
         finishPosition
       })
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setWalletBalance(data.walletBalance);
-          setTotalWon(data.totalWon);
-          setStreak(data.streak);
-        } else {
-          // Local update
-          setWalletBalance(prev => Math.max(0, prev + netWinnings));
-          if (netWinnings > 0) setTotalWon(t => t + netWinnings);
-        }
-      })
-      .catch(() => {
-        setWalletBalance(prev => Math.max(0, prev + netWinnings));
-        if (netWinnings > 0) setTotalWon(t => t + netWinnings);
-      });
-
-    // Add in-app notification
-    const newNotif: AppNotification = {
-      id: `notif_${Date.now()}`,
-      title: finishPosition <= 2 ? 'Tournament Won! +₦500 Prize' : 'Match Results Tally',
-      message: `You earned ₦${netWinnings.toLocaleString()} with ${correctMatches} matches. Position #${finishPosition}.`,
-      time: 'Just now',
-      type: 'tournament',
-      read: false
-    };
-    setNotifications(prev => [newNotif, ...prev]);
+    }).catch(() => {});
   };
 
   // Save Bank Account
@@ -240,15 +333,14 @@ export default function App() {
     verifiedAt: string;
   }) => {
     setBankAccount(bank);
+    saveGame({ bankAccount: bank });
     try {
       await fetch('/api/bank/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bank)
       });
-    } catch {
-      // Handled in client
-    }
+    } catch {}
   };
 
   // Withdraw Funds
@@ -265,79 +357,60 @@ export default function App() {
         setWalletBalance(data.newBalance);
         if (data.transaction) {
           setTransactions(prev => [data.transaction, ...prev]);
-          // Add notification
-          setNotifications(prev => [
-            {
-              id: `notif_w_${Date.now()}`,
-              title: 'NIBSS Cashout Disbursed',
-              message: `₦${amount.toLocaleString()} was transferred to your ${data.transaction.bankName} account.`,
-              time: 'Just now',
-              type: 'payout',
-              read: false
-            },
-            ...prev
-          ]);
         }
+        saveGame({ walletBalance: data.newBalance });
         return true;
-      } else {
-        throw new Error(data.message || 'Withdrawal failed');
-      }
-    } catch (err: unknown) {
-      // Local fallback simulation if server error
-      if (walletBalance >= amount && bankAccount) {
-        const now = new Date();
-        const dateFormatted = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-        const masked = bankAccount.accountNumber.slice(0, 4) + '****' + bankAccount.accountNumber.slice(-2);
-        const localTx = {
-          id: `tx_${Date.now()}`,
-          reference: `NIP/NMATCH/${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}/${Math.floor(100000 + Math.random() * 900000)}`,
-          amount,
-          bankName: bankAccount.bankName,
-          accountNumberMasked: masked,
-          accountName: bankAccount.accountName,
-          status: 'SUCCESSFUL' as const,
-          channel: 'NIBSS_INSTANT_PAYMENT',
-          date: dateFormatted
-        };
-        setWalletBalance(b => b - amount);
-        setTransactions(prev => [localTx, ...prev]);
-        return true;
-      }
-      const msg = err instanceof Error ? err.message : 'Transfer failed';
-      throw new Error(msg);
-    }
-  };
-
-  // Claim Daily Reward
-  const handleClaimDailyReward = async (): Promise<number> => {
-    try {
-      const res = await fetch('/api/rewards/daily-claim', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        setWalletBalance(data.walletBalance);
-        setTotalWon(t => t + data.bonusReward);
-        return data.bonusReward;
       }
     } catch {}
 
-    // Fallback
-    const localBonus = 250;
-    setWalletBalance(b => b + localBonus);
-    setTotalWon(t => t + localBonus);
-    return localBonus;
+    // Fallback local simulation
+    if (walletBalance >= amount && bankAccount) {
+      const now = new Date();
+      const masked = bankAccount.accountNumber.slice(0, 4) + '****' + bankAccount.accountNumber.slice(-2);
+      const localTx = {
+        id: `tx_${Date.now()}`,
+        reference: `NIP/NMATCH/${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}/${Math.floor(100000 + Math.random() * 900000)}`,
+        amount,
+        bankName: bankAccount.bankName,
+        accountNumberMasked: masked,
+        accountName: bankAccount.accountName,
+        status: 'SUCCESSFUL' as const,
+        channel: 'NIBSS_INSTANT_PAYMENT',
+        date: now.toLocaleString()
+      };
+      const updatedBalance = walletBalance - amount;
+      setWalletBalance(updatedBalance);
+      setTransactions(prev => [localTx, ...prev]);
+      saveGame({ walletBalance: updatedBalance });
+      return true;
+    }
+    return false;
   };
 
-  // Toggle Sound
+  // Daily reward claim
+  const handleClaimDailyReward = async (): Promise<number> => {
+    const reward = 250 + (streak * 50);
+    const nextBalance = walletBalance + reward;
+    setWalletBalance(nextBalance);
+    setTotalWon(t => t + reward);
+    saveGame({ walletBalance: nextBalance, totalWon: totalWon + reward });
+    return reward;
+  };
+
+  // Sound Toggle
   const handleToggleSound = () => {
     const next = !soundEnabled;
     setSoundEnabled(next);
     sound.enabled = next;
+    saveGame({ soundEnabled: next });
     if (next) sound.playTap();
   };
 
-  // Switch tab helper
-  const handleSelectTab = (tab: 'game' | 'leaderboard' | 'payout' | 'species' | 'tutorial') => {
+  // Sub-navigation tab selector
+  const handleSelectTab = (tab: 'game' | 'stages' | 'themes' | 'leaderboard' | 'payout' | 'species' | 'tutorial') => {
     setActiveTab(tab);
+    if (tab === 'stages') setIsStageSelectorOpen(true);
+    if (tab === 'themes') setIsThemeSelectorOpen(true);
     if (tab === 'leaderboard') setIsLeaderboardOpen(true);
     if (tab === 'payout') setIsPayoutOpen(true);
     if (tab === 'species') setIsSpeciesOpen(true);
@@ -349,10 +422,13 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-slate-100 flex flex-col relative selection:bg-purple-600 selection:text-white">
       
-      {/* Animated Purple & Black Ambient Backdrop with Floating Species */}
+      {/* Background Ambience */}
       <AmbientBackground />
 
-      {/* Top Bar adhering to 3-Zone Contract */}
+      {/* PWA Install Banner */}
+      <PWAInstallBanner />
+
+      {/* Top Bar with 3-Zone Contract */}
       <TopBar
         walletBalance={walletBalance}
         soundEnabled={soundEnabled}
@@ -367,7 +443,7 @@ export default function App() {
         userName={userName}
       />
 
-      {/* Main Content Area */}
+      {/* Main Game Arena */}
       <main className="flex-1 relative z-10 flex flex-col justify-start">
         <GameBoard
           onCreditWallet={handleCreditWallet}
@@ -375,10 +451,41 @@ export default function App() {
           onShare={() => setIsSocialShareOpen(true)}
           soundEnabled={soundEnabled}
           streak={streak}
+          walletBalance={walletBalance}
+          selectedTheme={activeTheme}
+          onOpenThemeSelector={() => setIsThemeSelectorOpen(true)}
+          onOpenStageSelector={() => setIsStageSelectorOpen(true)}
+          activeStage={activeStage}
+          onClearActiveStage={() => setActiveStage(null)}
+          boosters={boosters}
+          onUseBooster={handleUseBooster}
+          onBuyBooster={handleBuyBooster}
+          onStageCompleted={handleStageCompleted}
         />
       </main>
 
       {/* Interactive Modals */}
+      <StageSelectorModal
+        isOpen={isStageSelectorOpen}
+        onClose={() => { setIsStageSelectorOpen(false); setActiveTab('game'); }}
+        onSelectStage={(stage) => {
+          setActiveStage(stage);
+          setIsStageSelectorOpen(false);
+          setActiveTab('game');
+        }}
+        stageProgress={stageProgress}
+      />
+
+      <ThemeSelectorModal
+        isOpen={isThemeSelectorOpen}
+        onClose={() => { setIsThemeSelectorOpen(false); setActiveTab('game'); }}
+        selectedThemeId={selectedThemeId}
+        onSelectTheme={(themeId) => {
+          setSelectedThemeId(themeId);
+          saveGame({ selectedThemeId: themeId });
+        }}
+      />
+
       <PayoutEngineModal
         isOpen={isPayoutOpen}
         onClose={() => { setIsPayoutOpen(false); setActiveTab('game'); }}
@@ -438,24 +545,24 @@ export default function App() {
         onOpenDailyRewards={() => { setIsNotificationsOpen(false); setIsDailyRewardsOpen(true); }}
       />
 
-      {/* Persistent Quiet Clean Footer */}
+      {/* Footer */}
       <footer className="relative z-20 border-t border-purple-950/60 bg-black/80 backdrop-blur px-6 py-4 mt-8">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
           <div className="flex items-center gap-2">
-            <span className="font-display font-semibold text-slate-400">NairaMatch Species</span>
+            <span className="font-display font-semibold text-slate-400">NairaMatch Lagos Edition</span>
             <span>·</span>
-            <span>Real NIBSS Automated Settlement Gateway</span>
+            <span>PWA Offline Installable & Device Auto-Save</span>
           </div>
 
           <div className="flex items-center gap-4 text-slate-400">
-            <button onClick={() => setIsTutorialOpen(true)} className="hover:text-purple-300 transition-colors">
-              Rules & Payout Guide
+            <button onClick={() => setIsStageSelectorOpen(true)} className="hover:text-purple-300 transition-colors">
+              Lagos Stages
             </button>
-            <button onClick={() => setIsSpeciesOpen(true)} className="hover:text-purple-300 transition-colors">
-              IUCN Red List Data
+            <button onClick={() => setIsThemeSelectorOpen(true)} className="hover:text-purple-300 transition-colors">
+              Tile Themes
             </button>
             <button onClick={() => setIsPayoutOpen(true)} className="hover:text-purple-300 transition-colors">
-              Payment Gateway
+              Bank Cashout
             </button>
           </div>
         </div>

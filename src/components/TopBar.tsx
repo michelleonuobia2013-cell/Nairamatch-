@@ -6,8 +6,8 @@ interface TopBarProps {
   walletBalance: number;
   soundEnabled: boolean;
   onToggleSound: () => void;
-  activeTab: 'game' | 'leaderboard' | 'payout' | 'species' | 'tutorial';
-  onSelectTab: (tab: 'game' | 'leaderboard' | 'payout' | 'species' | 'tutorial') => void;
+  activeTab: 'game' | 'stages' | 'themes' | 'leaderboard' | 'payout' | 'species' | 'tutorial';
+  onSelectTab: (tab: 'game' | 'stages' | 'themes' | 'leaderboard' | 'payout' | 'species' | 'tutorial') => void;
   onOpenPayout: () => void;
   onOpenNotifications: () => void;
   onOpenDailyRewards: () => void;
@@ -62,6 +62,18 @@ export const TopBar: React.FC<TopBarProps> = ({
             Play Match
           </button>
           <button
+            onClick={() => { sound.playTap(); onSelectTab('stages'); }}
+            className={`whitespace-nowrap transition-colors py-1 ${activeTab === 'stages' ? 'text-white font-semibold border-b-2 border-purple-500' : 'hover:text-purple-300'}`}
+          >
+            Lagos Stages
+          </button>
+          <button
+            onClick={() => { sound.playTap(); onSelectTab('themes'); }}
+            className={`whitespace-nowrap transition-colors py-1 ${activeTab === 'themes' ? 'text-white font-semibold border-b-2 border-purple-500' : 'hover:text-purple-300'}`}
+          >
+            Card Themes
+          </button>
+          <button
             onClick={() => { sound.playTap(); onSelectTab('leaderboard'); }}
             className={`whitespace-nowrap transition-colors py-1 ${activeTab === 'leaderboard' ? 'text-white font-semibold border-b-2 border-purple-500' : 'hover:text-purple-300'}`}
           >
@@ -77,13 +89,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={() => { sound.playTap(); onSelectTab('species'); }}
             className={`whitespace-nowrap transition-colors py-1 ${activeTab === 'species' ? 'text-white font-semibold border-b-2 border-purple-500' : 'hover:text-purple-300'}`}
           >
-            Rare Species Intel
-          </button>
-          <button
-            onClick={() => { sound.playTap(); onSelectTab('tutorial'); }}
-            className={`whitespace-nowrap transition-colors py-1 ${activeTab === 'tutorial' ? 'text-white font-semibold border-b-2 border-purple-500' : 'hover:text-purple-300'}`}
-          >
-            How to Play
+            Rare Species
           </button>
         </nav>
 
@@ -153,6 +159,18 @@ export const TopBar: React.FC<TopBarProps> = ({
           Play Match
         </button>
         <button
+          onClick={() => { sound.playTap(); onSelectTab('stages'); }}
+          className={`px-3 py-1 rounded-md whitespace-nowrap ${activeTab === 'stages' ? 'bg-purple-900/60 text-white font-medium' : 'text-slate-400'}`}
+        >
+          Lagos Stages
+        </button>
+        <button
+          onClick={() => { sound.playTap(); onSelectTab('themes'); }}
+          className={`px-3 py-1 rounded-md whitespace-nowrap ${activeTab === 'themes' ? 'bg-purple-900/60 text-white font-medium' : 'text-slate-400'}`}
+        >
+          Themes
+        </button>
+        <button
           onClick={() => { sound.playTap(); onSelectTab('leaderboard'); }}
           className={`px-3 py-1 rounded-md whitespace-nowrap ${activeTab === 'leaderboard' ? 'bg-purple-900/60 text-white font-medium' : 'text-slate-400'}`}
         >
@@ -169,12 +187,6 @@ export const TopBar: React.FC<TopBarProps> = ({
           className={`px-3 py-1 rounded-md whitespace-nowrap ${activeTab === 'species' ? 'bg-purple-900/60 text-white font-medium' : 'text-slate-400'}`}
         >
           Rare Species
-        </button>
-        <button
-          onClick={() => { sound.playTap(); onSelectTab('tutorial'); }}
-          className={`px-3 py-1 rounded-md whitespace-nowrap ${activeTab === 'tutorial' ? 'bg-purple-900/60 text-white font-medium' : 'text-slate-400'}`}
-        >
-          Tutorial
         </button>
       </div>
     </header>

@@ -9,9 +9,32 @@
     <meta property="og:description" content="High-stakes 10-minute rare species memory reaction game with +₦500 card matches, -₦1 penalty, 4-player tournaments, simulated real bank payouts, and global leaderboards." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="NairaMatch" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+      // Gracefully handle and suppress dev environment WebSocket closure errors in sandbox iframe
+      window.addEventListener('error', function (e) {
+        if (e && e.message && (e.message.includes('WebSocket') || e.message.includes('closed without opened'))) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        var msg = e && e.reason ? (e.reason.message || String(e.reason)) : '';
+        if (msg.includes('WebSocket') || msg.includes('closed without opened')) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      });
+    </script>
   </head>
   <body class="bg-black text-slate-100 antialiased overflow-x-hidden selection:bg-purple-600 selection:text-white">
     <div id="root"></div>

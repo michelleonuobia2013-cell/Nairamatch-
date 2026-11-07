@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -409,6 +410,8 @@ app.get('/api/leaderboard', (_req: Request, res: Response) => {
 
 // Vite middleware or production static serving
 async function setupViteOrStatic() {
+  const httpServer = http.createServer(app);
+
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, 'dist')));
     app.get('*', (_req: Request, res: Response) => {
@@ -417,13 +420,19 @@ async function setupViteOrStatic() {
   } else {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        hmr: {
+          server: httpServer,
+          clientPort: 443
+        }
+      },
       appType: 'spa'
     });
     app.use(vite.middlewares);
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`NairaMatch server running on http://0.0.0.0:${PORT}`);
   });
 }
